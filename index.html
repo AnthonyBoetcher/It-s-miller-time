@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <!-- Standard favicon -->
+<link rel="icon" type="image/png" href="favicon.png">
+<!-- Apple Touch Icon (iOS and Android) -->
+<link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+<!-- Android Chrome Home Screen Icon -->
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="application-name" content="App Name">
+<link rel="icon" sizes="192x192" href="android-chrome-192x192.png">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>It's Miller time</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: black; /* Set background color to black */
+            color: white; /* Set text color to white */
+        }
+        canvas {
+            display: block;
+        }
+        .controls {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            z-index: 1; /* Ensure controls appear above the scene */
+        }
+        button {
+            margin: 5px;
+            padding: 5px 10px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        #vectorInfo {
+            position: absolute;
+            top: 50px;
+            left: 10px;
+            font-size: 100px; /* Enlarge font size */
+            z-index: 1; /* Ensure text appears above the scene */
+        }
+        #computationExplanation {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            font-size: 14px;
+            z-index: 1; /* Ensure text appears above the scene */
+            background-color: rgba(0, 0, 0, 0.5); /* Semi-transparent background */
+            padding: 10px;
+            max-width: 400px; /* Limit width to prevent text overflow */
+            color: white; /* Set text color to white */
+        }
+        .x-axis {
+            color: red !important; /* Ensure color override */
+        }
+        .y-axis {
+            color: green !important; /* Ensure color override */
+        }
+        .z-axis {
+            color: blue !important; /* Ensure color override */
+        }
+    </style>
+</head>
+<body>
+    <div class="controls">
+        <button id="rotateX" onclick="rotateScene('x', 'forward')">Rotate X Forward</button>
+        <button id="rotateXReverse" onclick="rotateScene('x', 'reverse')">Rotate X Reverse</button>
+        <button id="rotateY" onclick="rotateScene('y', 'forward')">Rotate Y Forward</button>
+        <button id="rotateYReverse" onclick="rotateScene('y', 'reverse')">Rotate Y Reverse</button>
+        <button id="rotateZ" onclick="rotateScene('z', 'forward')">Rotate Z Forward</button>
+        <button id="rotateZReverse" onclick="rotateScene('z', 'reverse')">Rotate Z Reverse</button>
+    </div>
+    <div id="vectorInfo">
+        <span id="xAxis" class="x-axis"></span>
+        <span id="yAxis" class="y-axis"></span>
+        <span id="zAxis" class="z-axis"></span>
+    </div>
+    <div id="computationExplanation">
+        <strong>Vector Value Computation:</strong><br>
+        The vector values are rounded to the nearest whole number, maintaining the lowest possible integer values across all axes.<br>
+        The computation uses the greatest common divisor (gcd) to find the lowest integer values.
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+        window.onload = function() {
+            alert("Work in progress!");
+        };
+        // Set up the scene
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        // Create axes
+        const axesHelper = new THREE.AxesHelper(40); // Enlarged axes to fit 80% of the screen
+        scene.add(axesHelper);
+
+        // Labels for axes
+        const xAxisLabel = createLabel('X', 'red');
+        const yAxisLabel = createLabel('Y', 'green');
+        const zAxisLabel = createLabel('Z', 'blue');
+        scene.add(xAxisLabel);
+        scene.add(yAxisLabel);
+        scene.add(zAxisLabel);
+
+        // Create unit cell intercepts
+        const unitCellMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff }); // White color
+        const unitCellSize = 1;
+        const unitCellGeometry = new THREE.SphereGeometry(0.2, 8, 8); // Double the dot size
+
+        const numDots = 15; // Increase dot density
+        const dotPositions = [0, 0.25, 0.5, 0.75, 1];
+        const dots = [];
+
+        for (let x of dotPositions) {
+            for (let y of dotPositions) {
+                for (let z of dotPositions) {
+                    const dot = new THREE.Mesh(unitCellGeometry, unitCellMaterial);
+                    dot.position.set(x * numDots, y * numDots, z * numDots);
+                    scene.add(dot);
+                    dots.push(dot); // Add dot to array
+                }
+            }
+        }
+
+        // Set up mouse interaction
+        const raycaster = new THREE.Raycaster();
+        const mouse = new THREE.Vector2();
+        let selectedDot = null;
+        let arrow = null;
+
+        function onMouseMove(event) {
+            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = - (event.clientY / window.innerHeight) * 2 + 1;
+        }
+
+        function onMouseDown(event) {
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObjects(dots);
+
+            if (intersects.length > 0) {
+                selectedDot = intersects[0].object;
+            }
+        }
+
+        function onMouseUp(event) {
+            if (selectedDot !== null) {
+                const endPosition = selectedDot.position.clone(); // Get position of selected dot
+                const arrowGeometry = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), endPosition]);
+                const arrowMaterial = new THREE.LineBasicMaterial({ color: 0xff0000 });
+                arrow = new THREE.Line(arrowGeometry, arrowMaterial);
+                scene.add(arrow);
+
+                // Label the vector
+                const label = createLabel(`(${endPosition.x}, ${endPosition.y}, ${endPosition.z})`, 'black');
+                label.position.copy(endPosition);
+                scene.add(label);
+
+                // Clear previous vector info
+                clearVectorInfo();
+
+                // Compute and display vector values
+                const vectorValues = computeVectorValues(endPosition);
+                document.getElementById('xAxis').innerText = vectorValues.x;
+                document.getElementById('yAxis').innerText = vectorValues.y;
+                document.getElementById('zAxis').innerText = vectorValues.z;
+
+                // Color code vector values based on axis
+                colorCodeVectorValues(vectorValues);
+
+                selectedDot = null;
+            }
+        }
+
+        window.addEventListener('mousemove', onMouseMove, false);
+        window.addEventListener('mousedown', onMouseDown, false);
+        window.addEventListener('mouseup', onMouseUp, false);
+
+        // Set up camera position
+        camera.position.set(20, 20, 20);
+        camera.lookAt(scene.position);
+
+        // Function to create axis labels
+        function createLabel(text, color) {
+            const canvas = document.createElement('canvas');
+            const context = canvas.getContext('2d');
+            context.font = 'Bold 20px Arial';
+            context.fillStyle = color;
+            context.fillText(text, 0, 20);
+
+            const texture = new THREE.CanvasTexture(canvas);
+            const material = new THREE.MeshBasicMaterial({ map: texture, side: THREE.DoubleSide });
+            const geometry = new THREE.PlaneGeometry(3, 1);
+            const mesh = new THREE.Mesh(geometry, material);
+            return mesh;
+        }
+
+        // Render the scene
+        function animate() {
+            requestAnimationFrame(animate);
+            renderer.render(scene, camera);
+        }
+        animate();
+
+        // Function to compute vector values and display them
+        function computeVectorValues(position) {
+            const gcdValue = gcd(position.x, position.y, position.z);
+            const xValue = position.x / gcdValue;
+            const yValue = position.y / gcdValue;
+            const zValue = position.z / gcdValue;
+            return { x: xValue, y: yValue, z: zValue };
+        }
+
+        // Function to compute the greatest common divisor (gcd)
+        function gcd(a, b, c) {
+            if (!b) {
+                return a;
+            }
+            return gcd(b, a % b, c);
+        }
+
+        // Function to clear previous vector info
+        function clearVectorInfo() {
+            document.getElementById('xAxis').innerText = '';
+            document.getElementById('yAxis').innerText = '';
+            document.getElementById('zAxis').innerText = '';
+        }
+
+        // Function to color code vector values based on axis
+        function colorCodeVectorValues(vectorValues) {
+            const xAxisElement = document.getElementById('xAxis');
+            const yAxisElement = document.getElementById('yAxis');
+            const zAxisElement = document.getElementById('zAxis');
+
+            xAxisElement.classList.add('x-axis');
+            yAxisElement.classList.add('y-axis');
+            zAxisElement.classList.add('z-axis');
+        }
+
+        // Function to rotate the scene
+        function rotateScene(axis, direction) {
+            const angle = Math.PI / 180;
+            switch (axis) {
+                case 'x':
+                    scene.rotation.x += direction === 'forward' ? angle : -angle;
+                    break;
+                case 'y':
+                    scene.rotation.y += direction === 'forward' ? angle : -angle;
+                    break;
+                case 'z':
+                    scene.rotation.z += direction === 'forward' ? angle : -angle;
+                    break;
+                default:
+                    break;
+            }
+        }
+    </script>
+</body>
+</html>
