@@ -2,13 +2,13 @@
 <html lang="en">
 <head>
     <!-- Standard favicon -->
-<link rel="icon" type="image/png" href="favicon.png">
-<!-- Apple Touch Icon (iOS and Android) -->
-<link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
-<!-- Android Chrome Home Screen Icon -->
-<meta name="mobile-web-app-capable" content="yes">
-<meta name="application-name" content="App Name">
-<link rel="icon" sizes="192x192" href="android-chrome-192x192.png">
+    <link rel="icon" type="image/png" href="favicon.png">
+    <!-- Apple Touch Icon (iOS and Android) -->
+    <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+    <!-- Android Chrome Home Screen Icon -->
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="application-name" content="App Name">
+    <link rel="icon" sizes="192x192" href="android-chrome-192x192.png">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>It's Miller time</title>
@@ -86,7 +86,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script>
         window.onload = function() {
-            alert("Work in progress! Click to calculate Miller indice within unit cell (some work, some don't... find the ones that don't)");
+            alert("Work in progress!");
         };
         // Set up the scene
         const scene = new THREE.Scene();
@@ -107,25 +107,24 @@
         scene.add(yAxisLabel);
         scene.add(zAxisLabel);
 
-        // Create unit cell intercepts
-        const unitCellMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff }); // White color
-        const unitCellSize = 1;
-        const unitCellGeometry = new THREE.SphereGeometry(0.2, 8, 8); // Double the dot size
+       // Create unit cell intercepts
+const unitCellMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff }); // White color
+const unitCellGeometry = new THREE.SphereGeometry(0.2, 8, 8); // Double the dot size
 
-        const numDots = 15; // Increase dot density
-        const dotPositions = [0, 0.25, 0.5, 0.75, 1];
-        const dots = [];
+const numDots = 15; // Increase dot density
+const dotPositions = [0, 0.25, 0.5, 0.75, 1];
+const dots = [];
 
-        for (let x of dotPositions) {
-            for (let y of dotPositions) {
-                for (let z of dotPositions) {
-                    const dot = new THREE.Mesh(unitCellGeometry, unitCellMaterial);
-                    dot.position.set(x * numDots, y * numDots, z * numDots);
-                    scene.add(dot);
-                    dots.push(dot); // Add dot to array
-                }
-            }
+for (let x of dotPositions) {
+    for (let y of dotPositions) {
+        for (let z of dotPositions) {
+            const dot = new THREE.Mesh(unitCellGeometry, unitCellMaterial);
+            dot.position.set(x * numDots, y * numDots, z * numDots); // Adjusted positions
+            scene.add(dot);
+            dots.push(dot); // Add dot to array
         }
+    }
+}
 
         // Set up mouse interaction
         const raycaster = new THREE.Raycaster();
@@ -133,10 +132,21 @@
         let startDot = null;
         let endDot = null;
         let arrow = null;
+        let label = null;
 
         function onMouseMove(event) {
             mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
             mouse.y = - (event.clientY / window.innerHeight) * 2 + 1;
+
+            if (startDot !== null && endDot !== null) {
+                raycaster.setFromCamera(mouse, camera);
+                const intersects = raycaster.intersectObjects(dots);
+
+                if (intersects.length > 0) {
+                    const intersectedDot = intersects[0].object;
+                    endDot.position.copy(intersectedDot.position);
+                }
+            }
         }
 
         function onMouseDown(event) {
@@ -144,20 +154,26 @@
             const intersects = raycaster.intersectObjects(dots);
 
             if (intersects.length > 0) {
-                if (!startDot) {
-                    startDot = intersects[0].object;
-                } else if (!endDot) {
-                    endDot = intersects[0].object;
-                    updateVector();
-                }
+                startDot = intersects[0].object;
+                endDot = new THREE.Mesh(unitCellGeometry, unitCellMaterial);
+                scene.add(endDot);
             }
         }
 
-        function updateVector() {
-            if (startDot && endDot) {
+        function onMouseUp(event) {
+            if (startDot !== null && endDot !== null) {
+                // Remove previously drawn arrow and label
+                if (arrow !== null) {
+                    scene.remove(arrow);
+                    arrow = null;
+                }
+                if (label !== null) {
+                    scene.remove(label);
+                    label = null;
+                }
+
                 const startPosition = startDot.position.clone();
                 const endPosition = endDot.position.clone();
-                if (arrow) scene.remove(arrow);
 
                 const arrowGeometry = new THREE.BufferGeometry().setFromPoints([startPosition, endPosition]);
                 const arrowMaterial = new THREE.LineBasicMaterial({ color: 0xff0000 });
@@ -165,7 +181,7 @@
                 scene.add(arrow);
 
                 // Label the vector
-                const label = createLabel(`(${endPosition.x - startPosition.x}, ${endPosition.y - startPosition.y}, ${endPosition.z - startPosition.z})`, 'black');
+                label = createLabel(`(${endPosition.x - startPosition.x}, ${endPosition.y - startPosition.y}, ${endPosition.z - startPosition.z})`, 'black');
                 label.position.copy(endPosition);
                 scene.add(label);
 
@@ -173,7 +189,11 @@
                 clearVectorInfo();
 
                 // Compute and display vector values
-                const vectorValues = computeVectorValues(endPosition.clone().sub(startPosition));
+                const vectorValues = computeVectorValues({
+                    x: endPosition.x - startPosition.x,
+                    y: endPosition.y - startPosition.y,
+                    z: endPosition.z - startPosition.z
+                });
                 document.getElementById('xAxis').innerText = vectorValues.x;
                 document.getElementById('yAxis').innerText = vectorValues.y;
                 document.getElementById('zAxis').innerText = vectorValues.z;
@@ -181,13 +201,22 @@
                 // Color code vector values based on axis
                 colorCodeVectorValues(vectorValues);
 
-                startDot = null;
+                // Create Miller plane for the vector (1, 0, 0)
+                if (vectorValues.x === 1 && vectorValues.y === 0 && vectorValues.z === 0) {
+                    createMillerPlane(vectorValues);
+                }
+
+                // Remove end dot
+                scene.remove(endDot);
                 endDot = null;
+
+                startDot = null;
             }
         }
 
         window.addEventListener('mousemove', onMouseMove, false);
         window.addEventListener('mousedown', onMouseDown, false);
+        window.addEventListener('mouseup', onMouseUp, false);
 
         // Set up camera position
         camera.position.set(20, 20, 20);
@@ -217,11 +246,26 @@
 
         // Function to compute vector values and display them
         function computeVectorValues(position) {
-            const gcdValue = gcd(position.x, position.y, position.z);
+            let gcdValue = gcd(position.x, position.y, position.z);
+
+            // Ensure gcdValue is not zero to avoid division by zero
+            if (gcdValue === 0) {
+                // Set vector values directly for axis points
+                if (position.x !== 0) return { x: -x, y: 0, z: 0 };
+                if (position.y !== 0) return { x: 0, y: -y, z: 0 };
+                if (position.z !== 0) return { x: 0, y: 0, z: -z };
+            }
+
             const xValue = position.x / gcdValue;
             const yValue = position.y / gcdValue;
             const zValue = position.z / gcdValue;
-            return { x: xValue, y: yValue, z: zValue };
+
+            // Adjust vector values to account for negative directions
+            return {
+                x: position.x < 0 ? -xValue : xValue,
+                y: position.y < 0 ? -yValue : yValue,
+                z: position.z < 0 ? -zValue : zValue
+            };
         }
 
         // Function to compute the greatest common divisor (gcd)
@@ -239,33 +283,26 @@
             document.getElementById('zAxis').innerText = '';
         }
 
-        
         // Function to color code vector values based on axis
         function colorCodeVectorValues(vectorValues) {
             const xAxisElement = document.getElementById('xAxis');
             const yAxisElement = document.getElementById('yAxis');
             const zAxisElement = document.getElementById('zAxis');
 
-            xAxisElement.classList.add('x-axis');
-            yAxisElement.classList.add('y-axis');
-            zAxisElement.classList.add('z-axis');
-        
+            xAxisElement.classList.remove('negative');
+            yAxisElement.classList.remove('negative');
+            zAxisElement.classList.remove('negative');
+
             // Add class to indicate negative values
-if (vectorValues.x != 0 && vectorValues.x < 0) {
-    xAxisElement.classList.add('negative');
-} else {
-    xAxisElement.classList.remove('negative');
-}
-if (vectorValues.y != 0 && vectorValues.y < 0) {
-    yAxisElement.classList.add('negative');
-} else {
-    yAxisElement.classList.remove('negative');
-}
-if (vectorValues.z != 0 && vectorValues.z < 0) {
-    zAxisElement.classList.add('negative');
-} else {
-    zAxisElement.classList.remove('negative');
-}
+            if (vectorValues.x < 0) {
+                xAxisElement.classList.add('negative');
+            }
+            if (vectorValues.y < 0) {
+                yAxisElement.classList.add('negative');
+            }
+            if (vectorValues.z < 0) {
+                zAxisElement.classList.add('negative');
+            }
         }
 
         // Function to rotate the scene
@@ -285,6 +322,27 @@ if (vectorValues.z != 0 && vectorValues.z < 0) {
                     break;
             }
         }
+
+        // Function to create Miller plane for the given vector
+        function createMillerPlane(vectorValues) {
+    // Create plane geometry
+    const planeGeometry = new THREE.PlaneGeometry(15, 15); // Adjust size as needed
+
+    // Material for Miller plane
+    const planeMaterial = new THREE.MeshBasicMaterial({ color: 0xffff00, side: THREE.DoubleSide, opacity: 0.9, transparent: true }); // Yellow, more opaque
+
+    // Create the plane
+    const millerPlane = new THREE.Mesh(planeGeometry, planeMaterial);
+
+    // Position the plane parallel to the green z-axis and intercepting the x-axis at 1
+    millerPlane.position.set(1, 7.5, 7.5); // Adjust position based on the size of the dot matrix
+
+    // Rotate the plane to align with the grid
+    millerPlane.rotation.z = -Math.PI / 2;
+
+    // Add the plane to the scene
+    scene.add(millerPlane);
+}
     </script>
 </body>
 </html>
